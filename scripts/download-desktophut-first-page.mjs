@@ -26,7 +26,7 @@ const FETCH_RETRIES = 5;
 const FETCH_RETRY_DELAY_MS = 3000;
 const CURL_CONNECT_TIMEOUT_SECONDS = 60;
 const CURL_REQUEST_TIMEOUT_SECONDS = 300;
-const CURL_TEXT_TIMEOUT_MS = (CURL_REQUEST_TIMEOUT_SECONDS + 30) * 1000;
+const CURL_PROCESS_TIMEOUT_MS = (CURL_REQUEST_TIMEOUT_SECONDS + 30) * 1000;
 const CURL_IP_VERSION = "--ipv4";
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const SCRIPT_DIR = path.dirname(SCRIPT_PATH);
@@ -222,8 +222,8 @@ function runCurlCapture(args, label) {
     const child = spawn("curl", args, { stdio: ["ignore", "pipe", "pipe"] });
     const timer = setTimeout(() => {
       child.kill();
-      reject(new Error(`${label} timed out after ${CURL_TEXT_TIMEOUT_MS / 1000}s`));
-    }, CURL_TEXT_TIMEOUT_MS);
+      reject(new Error(`${label} timed out after ${CURL_PROCESS_TIMEOUT_MS / 1000}s`));
+    }, CURL_PROCESS_TIMEOUT_MS);
 
     child.stdout.on("data", (chunk) => stdout.push(chunk));
     child.stderr.on("data", (chunk) => stderr.push(chunk));
