@@ -24,7 +24,10 @@ const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36";
 const FETCH_RETRIES = 5;
 const FETCH_RETRY_DELAY_MS = 3000;
-const CURL_TEXT_TIMEOUT_MS = 120000;
+const CURL_CONNECT_TIMEOUT_SECONDS = 60;
+const CURL_REQUEST_TIMEOUT_SECONDS = 300;
+const CURL_TEXT_TIMEOUT_MS = (CURL_REQUEST_TIMEOUT_SECONDS + 30) * 1000;
+const CURL_IP_VERSION = "--ipv4";
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const SCRIPT_DIR = path.dirname(SCRIPT_PATH);
 const PROJECT_DIR = path.dirname(SCRIPT_DIR);
@@ -250,9 +253,10 @@ async function fetchText(url) {
       String(FETCH_RETRY_DELAY_MS / 1000),
       "--retry-all-errors",
       "--connect-timeout",
-      "20",
+      String(CURL_CONNECT_TIMEOUT_SECONDS),
       "--max-time",
-      "90",
+      String(CURL_REQUEST_TIMEOUT_SECONDS),
+      CURL_IP_VERSION,
       "-A",
       USER_AGENT,
       url,
@@ -332,9 +336,10 @@ async function getDownloadInfo(videoUrl, referer) {
       String(FETCH_RETRY_DELAY_MS / 1000),
       "--retry-all-errors",
       "--connect-timeout",
-      "20",
+      String(CURL_CONNECT_TIMEOUT_SECONDS),
       "--max-time",
-      "90",
+      String(CURL_REQUEST_TIMEOUT_SECONDS),
+      CURL_IP_VERSION,
       "-A",
       USER_AGENT,
       "-e",
@@ -382,6 +387,7 @@ async function downloadFile(videoUrl, title, referer) {
     "--retry-delay",
     "2",
     "--retry-all-errors",
+    CURL_IP_VERSION,
     "-C",
     "-",
     "-A",
@@ -411,6 +417,7 @@ if (!items.length) throw new Error(`No wallpaper items found on page ${options.p
 
 const urlRecords = await loadUrlRecords();
 const results = [];
+let actionableCount = 0;
 
 for (let i = 0; i < items.length; i += 1) {
   const item = items[i];
@@ -441,6 +448,11 @@ for (let i = 0; i < items.length; i += 1) {
   if (options.dryRun) {
     results.push({ ...item, detailUrl, page: options.page, pageUrl, ...detail, name, status: "dry-run" });
     console.log(`[${i + 1}/${items.length}] would download: ${name}`);
+    actionableCount += 1;
+    if (actionableCount >= options.limit) {
+      console.log(`Reached limit of ${options.limit}, stopping.`);
+      break;
+    }
     continue;
   }
 
@@ -467,8 +479,8 @@ for (let i = 0; i < items.length; i += 1) {
     ...download,
     status,
   });
-  // Stop after reaching download limit
-  if (i + 1 >= options.limit) {
+  actionableCount += 1;
+  if (actionableCount >= options.limit) {
     console.log(`Reached limit of ${options.limit}, stopping.`);
     break;
   }
