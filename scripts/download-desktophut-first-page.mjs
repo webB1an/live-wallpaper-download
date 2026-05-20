@@ -59,7 +59,7 @@ Workflow:
 }
 
 function parseArgs(argv) {
-  const options = { page: 1, outDir: path.join(PROJECT_DIR, "downloads"), dryRun: false };
+  const options = { page: 1, outDir: path.join(PROJECT_DIR, "downloads"), dryRun: false, limit: 999999 };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "-h" || arg === "--help") {
@@ -90,6 +90,17 @@ function parseArgs(argv) {
     }
     if (arg.startsWith("--out=")) {
       options.outDir = path.resolve(arg.slice("--out=".length));
+      continue;
+    }
+    if (arg === "-l" || arg === "--limit") {
+      const value = argv[i + 1];
+      if (!value) throw new Error(`${arg} requires a number.`);
+      options.limit = Number(value);
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--limit=")) {
+      options.limit = Number(arg.slice("--limit=".length));
       continue;
     }
     throw new Error(`Unknown option: ${arg}\n\n${usage()}`);
@@ -185,6 +196,7 @@ async function loadUrlRecords() {
         detailUrl,
         name: item.name || item.pageTitle || null,
         filePath: item.filePath || null,
+        status: item.status || null,
         videoUrl: item.videoUrl || null,
         recordedAt: new Date().toISOString(),
         migratedFromManifest: true,
@@ -455,6 +467,11 @@ for (let i = 0; i < items.length; i += 1) {
     ...download,
     status,
   });
+  // Stop after reaching download limit
+  if (i + 1 >= options.limit) {
+    console.log(`Reached limit of ${options.limit}, stopping.`);
+    break;
+  }
 }
 
 await writeFile(MANIFEST, JSON.stringify(results, null, 2), "utf8");

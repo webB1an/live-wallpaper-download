@@ -26,6 +26,7 @@ const USER_AGENT =
 const FETCH_RETRIES = 5;
 const FETCH_RETRY_DELAY_MS = 3000;
 const CURL_TEXT_TIMEOUT_MS = 120000;
+const CURL_DOWNLOAD_TIMEOUT_MS = 1800000; // 30 minutes
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const SCRIPT_DIR = path.dirname(SCRIPT_PATH);
 const PROJECT_DIR = path.dirname(SCRIPT_DIR);
@@ -60,7 +61,7 @@ Workflow:
 }
 
 function parseArgs(argv) {
-  const options = { page: 1, outDir: path.join(PROJECT_DIR, "downloads"), dryRun: false };
+  const options = { page: 1, outDir: path.join(PROJECT_DIR, "downloads"), dryRun: false, limit: 999999 };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "-h" || arg === "--help") {
@@ -91,6 +92,17 @@ function parseArgs(argv) {
     }
     if (arg.startsWith("--out=")) {
       options.outDir = path.resolve(arg.slice("--out=".length));
+      continue;
+    }
+    if (arg === "-l" || arg === "--limit") {
+      const value = argv[i + 1];
+      if (!value) throw new Error(`${arg} requires a number.`);
+      options.limit = Number(value);
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--limit=")) {
+      options.limit = Number(arg.slice("--limit=".length));
       continue;
     }
     throw new Error(`Unknown option: ${arg}\n\n${usage()}`);
@@ -179,6 +191,7 @@ async function loadUrlRecords() {
         detailUrl,
         name: item.name || item.pageTitle || null,
         filePath: item.filePath || null,
+        status: item.status || null,
         recordedAt: new Date().toISOString(),
         migratedFromManifest: true,
       });
@@ -328,8 +341,13 @@ async function getDownloadInfo(token, referer) {
 function runCurl(args) {
   return new Promise((resolve, reject) => {
     const child = spawn("curl", args, { stdio: ["ignore", "inherit", "inherit"] });
-    child.on("error", reject);
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`curl timed out after ${CURL_DOWNLOAD_TIMEOUT_MS / 1000}s`));
+    }, CURL_DOWNLOAD_TIMEOUT_MS);
+    child.on("error", (err) => { clearTimeout(timer); reject(err); });
     child.on("exit", (code) => {
+      clearTimeout(timer);
       if (code === 0) resolve();
       else reject(new Error(`curl exited with code ${code}`));
     });
@@ -417,6 +435,7 @@ for (let i = 0; i < items.length; i += 1) {
   if (options.dryRun) {
     results.push({ ...item, detailUrl, page: options.page, pageUrl, ...detail, name, status: "dry-run" });
     console.log(`[${i + 1}/${items.length}] would download: ${name}${detail.fileSize ? ` (${detail.fileSize})` : ""}`);
+    if (i + 1 >= options.limit) { console.log(`Reached limit of ${options.limit}, stopping dry-run.`); break; }
     continue;
   }
 
@@ -439,10 +458,14 @@ for (let i = 0; i < items.length; i += 1) {
     page: options.page,
     pageUrl,
     ...detail,
-    name,
     ...download,
     status,
   });
+  // Stop after first successful download (used by Hermes bot for one-at-a-time posting)
+  if (i + 1 >= options.limit) {
+    console.log(`Reached limit of ${options.limit}, stopping.`);
+    break;
+  }
 }
 
 await writeFile(MANIFEST, JSON.stringify(results, null, 2), "utf8");
