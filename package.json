@@ -1,0 +1,8 @@
+{
+  "name": "live-wallpaper-download",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "playwright": "^1.60.0"
+  }
+}

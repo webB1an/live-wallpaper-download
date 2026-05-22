@@ -5,8 +5,9 @@
 - MoeWalls
 - WallpaperWaifu
 - DesktopHut
+- Anime Pictures
 
-脚本默认下载对应网站的最新一页，支持指定页码、自定义壁纸保存目录、按详情页 URL 去重，并使用 `curl.exe` 下载以支持重试和断点续传。
+脚本默认下载对应网站的最新一页，支持指定页码、自定义保存目录、按详情页 URL 去重。动态壁纸脚本使用 `curl.exe` 下载以支持重试和断点续传；Anime Pictures 脚本使用 Playwright 真实浏览器处理站点页面。
 
 ## 目录结构
 
@@ -25,6 +26,13 @@
 ```powershell
 node --version
 curl.exe --version
+```
+
+Anime Pictures 脚本使用 Playwright 真实浏览器访问页面。克隆仓库后先安装依赖：
+
+```powershell
+npm install
+npx playwright install chromium
 ```
 
 ## 常用命令
@@ -89,12 +97,39 @@ node .\scripts\download-desktophut-first-page.mjs --page 2
 node .\scripts\download-desktophut-first-page.mjs --dry-run
 ```
 
+### Anime Pictures
+
+Anime Pictures 每次执行最多下载一张未记录的榜单图片。默认从“今日最佳”选择：
+
+```powershell
+node .\scripts\download-anime-pictures-best.mjs
+```
+
+从“本周最佳”选择：
+
+```powershell
+node .\scripts\download-anime-pictures-best.mjs --type week
+```
+
+只确认下一张候选图和前五个标签，不下载：
+
+```powershell
+node .\scripts\download-anime-pictures-best.mjs --type day --dry-run
+```
+
+Anime Pictures 文件名取详情页 `.tags` 的前五个标签，例如：
+
+```text
+arknights__arknights endfield__zhuang fangyi (arknights)__chungla__single.png
+```
+
 ## 通用参数
 
 ```text
 --page / -p   指定下载第几页；不传默认第 1 页
 --out / -o    指定壁纸视频保存目录；不传默认保存到 downloads
---dry-run     WallpaperWaifu 和 DesktopHut 脚本可用；只解析页面，不下载文件
+--dry-run     WallpaperWaifu、DesktopHut 和 Anime Pictures 脚本可用；只解析页面，不下载文件
+--type         Anime Pictures 脚本可用；day 为今日最佳，week 为本周最佳
 --help / -h   查看脚本帮助
 ```
 
@@ -108,6 +143,7 @@ node .\scripts\download-desktophut-first-page.mjs --dry-run
 config\downloaded-detail-urls.json
 config\downloaded-wallpaperwaifu-detail-urls.json
 config\downloaded-desktophut-detail-urls.json
+config\downloaded-anime-pictures-detail-urls.json
 ```
 
 这些 JSON 文件是本地运行状态，默认不会提交到 Git。即使使用 `--out` 修改壁纸保存目录，去重记录仍然固定使用项目根目录下的 `config`。
@@ -144,6 +180,7 @@ downloads
 config\manifest.json
 config\manifest-wallpaperwaifu.json
 config\manifest-desktophut.json
+config\manifest-anime-pictures.json
 ```
 
 这些运行结果文件同样不会提交到 Git。

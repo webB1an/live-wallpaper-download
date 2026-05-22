@@ -4,6 +4,12 @@ downloads/
 # Runtime records and manifests
 config/*.json
 
+# Node and Playwright runtime files
+node_modules/
+.playwright-cli/
+playwright-report/
+test-results/
+
 # Local scratch pages captured while debugging
 *.html
 
